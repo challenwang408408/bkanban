@@ -65,7 +65,7 @@ Hub 或某个 enrichment 失败时，row 应降级为普通标签或状态未知
 
 1. 用户启动 `bkanban`。
 2. 看板一行对应一个真实 Ghostty tab。
-3. 用户通过任务标题和首次 Prompt 辨认 Session。
+3. 用户通过 Ghostty 动态标签标题和首次 Prompt 辨认 Session。
 4. 用户通过状态颜色决定优先处理顺序。
 
 ### 场景 B：恢复上下文
@@ -120,6 +120,7 @@ Hub 或某个 enrichment 失败时，row 应降级为普通标签或状态未知
 ### 产品准确性
 
 - Ghostty 当前 tab 数与看板 row 数一致。
+- Session 名称与当前 Ghostty 标签标题一致，标签更新后最多 4 秒同步。
 - HAPi 历史/远程 Session 不会创建新 row。
 - 跳转和关闭不依赖 tab title、cwd 或 index。
 - 工作中的 Codex/Claude Session 不因 HAPi `thinking=false` 被系统性误标为待命。
@@ -146,9 +147,7 @@ Hub 或某个 enrichment 失败时，row 应降级为普通标签或状态未知
 
 ## 9. 隐私原则
 
-- 默认不读取项目 `.env`。
-- 没有显式配置标题模型凭据时，不向 OpenAI 发送 Prompt。
-- 标题 provider 的数据外发必须在 README 中明示。
+- 不为 Session 标题调用独立模型，不因展示标题额外外发 Prompt。
 - 本地 Prompt 缓存必须使用私有权限，并提供清空命令。
 - 诊断信息不包含 token、Authorization header、完整进程命令行或完整私密消息。
 
@@ -159,13 +158,13 @@ Hub 或某个 enrichment 失败时，row 应降级为普通标签或状态未知
 - Ghostty 事实源 + HAPi enrichment。
 - Codex/Claude 原生状态修正。
 - 详情结论、精确跳转、单个/批量关闭。
-- OpenAI-compatible 标题 provider。
+- Ghostty 动态标签标题直读。
 - 通用安装、隐私和开源文档。
 
 ### v0.2 · Configurable
 
 - `~/.config/bkanban/config.toml`。
-- 刷新频率、显示列、标题 provider 配置。
+- 刷新频率和显示列配置。
 - `doctor --verbose` 脱敏诊断包。
 - pipx / Homebrew 发布路径。
 

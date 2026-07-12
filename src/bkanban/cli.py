@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from .aggregate import collect_snapshot, hydrate_prompts
 from .board import PROMPT_CHARS, _clip, _directory
 from .hapi_client import HapiService, PromptCache
 from .models import STATE_LABELS
-from .titles import TitleCache, hydrate_titles
 
 
 def _format_rows(rows: list) -> str:
@@ -42,16 +42,12 @@ def _format_rows(rows: list) -> str:
 def cmd_list() -> int:
     service = HapiService()
     cache = PromptCache()
-    title_cache = TitleCache()
-    title_errors: list[str] = []
     try:
         snapshot = collect_snapshot(
             service=service,
             prompt_cache=cache,
-            title_cache=title_cache,
         )
         hydrate_prompts(snapshot, service=service, prompt_cache=cache)
-        title_errors = hydrate_titles(snapshot, cache=title_cache)
     except Exception as exc:
         print(f"bkanban list 失败: {exc}", file=sys.stderr)
         return 1
@@ -60,8 +56,6 @@ def cmd_list() -> int:
     print(_format_rows(snapshot.rows))
     if snapshot.warnings:
         print(f"\n降级提示: {len(snapshot.warnings)} 个", file=sys.stderr)
-    if title_errors:
-        print(f"标题模型生成失败: {len(title_errors)} 个", file=sys.stderr)
     return 0
 
 
@@ -96,8 +90,14 @@ def cmd_doctor() -> int:
 
 def cmd_clear_cache() -> int:
     PromptCache().clear()
-    TitleCache().clear()
-    print("已清空首次 Prompt 和标题缓存。")
+    legacy_title_cache = (
+        Path.home() / ".local" / "state" / "notebook-hapi-board" / "titles.json"
+    )
+    try:
+        legacy_title_cache.unlink()
+    except FileNotFoundError:
+        pass
+    print("已清空首次 Prompt 缓存和旧版标题缓存。")
     return 0
 
 

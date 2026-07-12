@@ -34,17 +34,12 @@ HAPi token 只用于 Authorization header，不写入 bkanban cache。请只将 
 `bkanban` 会在 `~/.local/state/notebook-hapi-board/` 下缓存：
 
 - 首次 Prompt 原文，最多 1200 字符/Session。
-- Session ID、Prompt hash、标题模型名和生成标题。
 
 目录权限为 `0700`，文件权限为 `0600`。清空：
 
 ```bash
 bkanban clear-cache
 ```
-
-## 可选标题模型
-
-只有显式配置 OpenAI-compatible provider 后，首次 Prompt 才会发往该 provider。默认不读项目 `.env`。请根据你的数据政策选择本地模型或可信服务。
 
 ## 破坏性操作
 
@@ -59,6 +54,5 @@ bkanban clear-cache
 - Ghostty AppleScript 自动化权限。
 - HAPi Hub 和 runner。
 - Agent 本地日志格式。
-- 用户配置的标题 provider。
 
 详细威胁边界见 [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md)。

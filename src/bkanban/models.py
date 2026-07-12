@@ -102,7 +102,6 @@ class HapiSession:
     state_detail: str = ""
     first_prompt: str = ""
     prompt_loaded: bool = False
-    title_loaded: bool = False
     updated_at: int | None = None
     history: list[ConversationRound] = field(default_factory=list)
 
@@ -149,10 +148,13 @@ class BoardRow:
     @property
     def session_name(self) -> str:
         primary = self.primary
-        if primary:
-            suffix = f" +{len(self.sessions) - 1}" if len(self.sessions) > 1 else ""
-            return f"{primary.name}{suffix}"
-        return self.tab.title or self.tab.cwd.rstrip("/").rsplit("/", 1)[-1] or "Ghostty"
+        title = self.tab.title.strip()
+        if not title and primary:
+            title = primary.name
+        if not title:
+            title = self.tab.cwd.rstrip("/").rsplit("/", 1)[-1] or "Ghostty"
+        suffix = f" +{len(self.sessions) - 1}" if len(self.sessions) > 1 else ""
+        return f"{title}{suffix}"
 
     @property
     def first_prompt(self) -> str:

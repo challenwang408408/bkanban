@@ -56,7 +56,6 @@ def snapshot() -> BoardSnapshot:
         state=SessionState.WORKING,
         state_detail="Agent 处理中",
         first_prompt="请以 Ghostty 标签页为集合事实源，HAPi 只补充状态和问答",
-        title_loaded=True,
         history=[ConversationRound(user="请重做这个看板", assistant="已完成核心架构与测试。")],
     )
     return BoardSnapshot(rows=[BoardRow(tab=tab, sessions=[session])])

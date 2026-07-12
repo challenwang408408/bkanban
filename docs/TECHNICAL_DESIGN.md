@@ -51,11 +51,11 @@ flowchart LR
   S --> A
   A --> B[BoardSnapshot\nGhostty rows + enrichment]
   B --> T[Textual TUI]
-  B --> Q[prompt/title/history hydration]
+  B --> Q[prompt/history hydration]
   Q --> T
 ```
 
-Ghostty 枚举失败是硬失败。runner、Hub、detail、messages、native log 或 title provider 失败都是可降级失败。
+Ghostty 枚举失败是硬失败。runner、Hub、detail、messages 或 native log 失败都是可降级失败。
 
 ## 4. 领域模型
 
@@ -95,7 +95,7 @@ primary 选择：
 7. Hub `hostPid` fallback 仅在 `machineId` 成功读取且严格匹配时生效；无 machine ID 时 fail closed。
 8. TTY 通过 OSC marker 关联 Ghostty terminal。
 9. 只有映射到已枚举 terminal 的 child 才挂到对应 row。
-10. Textual 每 4 秒刷新；应用 snapshot 后再异步补 Prompt 和 title。
+10. Textual 每 4 秒刷新并重新读取 Ghostty 标签标题；应用 snapshot 后再异步补 Prompt。
 
 旧异步结果通过 snapshot identity 检查防止覆盖新快照。
 
@@ -192,11 +192,10 @@ stateDiagram-v2
 
 ### 任务标题
 
-- provider 是 OpenAI-compatible `chat/completions`。
-- 默认 model 名为 `gpt-4o-mini`，可配置为任意远程或本地小模型。
-- 无 OpenAI API key 且未显式配置其他 base URL 时，不向 OpenAI 发送 Prompt。
-- 发送给 provider 的是首次 Prompt 前 1200 字符。
-- title cache 只存 session ID、Prompt hash、model 和 title。
+- `GhosttyTab.title` 是 Session 名称的唯一展示事实源。
+- Agent 启动初期显示 Ghostty 当前的 Agent 初始标题；输入 Prompt 后，Ghostty 更新标题，看板在下一次 4 秒刷新时同步。
+- HAPi display name 仅在 Ghostty 标题为空时兜底，不参与 tab 关联、跳转或关闭。
+- 标题展示不调用独立模型，也不为标题额外外发 Prompt。
 
 ## 9. 跳转协议
 
@@ -258,17 +257,16 @@ HAPi service 为不同 endpoint 使用独立 key：
 ### 本地缓存
 
 - Prompt cache 存储首次 Prompt 原文。
-- Title cache 存储 title 与 Prompt hash。
 - 目录 `0700`，文件 `0600`。
 - 先写临时文件，再 atomic replace。
-- `bkanban clear-cache` 删除两类缓存。
+- `bkanban clear-cache` 删除 Prompt cache，并兼容清理旧版 title cache。
 
 ### 并发
 
 - TTY mapping 使用全局 lock。
 - Hub HTTP client 使用 RLock。
 - cache 使用进程内 lock。
-- Textual worker 按 refresh/prompts/titles/detail/focus/close 分组，关键 worker 使用 `exclusive=True`。
+- Textual worker 按 refresh/prompts/detail/focus/close 分组，关键 worker 使用 `exclusive=True`。
 
 ## 12. 安全与隐私
 
@@ -284,7 +282,6 @@ HAPi service 为不同 endpoint 使用独立 key：
 ### 外部网络
 
 - 配置的 HAPi Hub。
-- 用户显式配置的可选标题 provider。
 
 ### 凭据
 
@@ -303,7 +300,7 @@ HAPi service 为不同 endpoint 使用独立 key：
 - HAPi endpoint 失败隔离与 last-good cache。
 - 状态优先级。
 - Codex/Claude native boundaries。
-- Prompt/title cache。
+- Prompt cache。
 - 问答结论提取。
 - Textual 两次 Enter、关闭确认和批量冻结。
 

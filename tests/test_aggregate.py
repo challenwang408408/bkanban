@@ -8,7 +8,6 @@ from unittest.mock import patch
 from bkanban.aggregate import collect_snapshot, hydrate_prompts
 from bkanban.hapi_client import HapiError, PromptCache
 from bkanban.models import GhosttyTerminal, HapiChild, SessionState
-from bkanban.titles import TitleCache, hydrate_titles
 
 
 def terminal(
@@ -60,7 +59,6 @@ class FactSourceTests(unittest.TestCase):
         self.terminals = [terminal("tab-1", 1, "term-1"), terminal("tab-2", 2, "term-2")]
         self.temp = tempfile.TemporaryDirectory()
         self.cache = PromptCache(Path(self.temp.name) / "prompts.json")
-        self.title_cache = TitleCache(Path(self.temp.name) / "titles.json")
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -69,7 +67,6 @@ class FactSourceTests(unittest.TestCase):
         with patch("bkanban.aggregate.ghostty.map_ttys", return_value=({}, {})):
             snapshot = collect_snapshot(
                 prompt_cache=self.cache,
-                title_cache=self.title_cache,
                 list_terminals=lambda: self.terminals,
                 list_children=lambda: [],
                 list_sessions=lambda: [],
@@ -97,13 +94,12 @@ class FactSourceTests(unittest.TestCase):
         ):
             snapshot = collect_snapshot(
                 prompt_cache=self.cache,
-                title_cache=self.title_cache,
                 list_terminals=lambda: self.terminals,
                 list_children=lambda: children,
                 list_sessions=lambda: [summary, {"id": "hub-only"}],
             )
         self.assertEqual(len(snapshot.rows), 2)
-        self.assertEqual(snapshot.rows[0].session_name, "等待首次 Prompt")
+        self.assertEqual(snapshot.rows[0].session_name, "标签 1")
         self.assertEqual(snapshot.rows[0].state, SessionState.WORKING)
         self.assertFalse(snapshot.rows[1].sessions)
 
@@ -124,7 +120,6 @@ class FactSourceTests(unittest.TestCase):
         ):
             snapshot = collect_snapshot(
                 prompt_cache=self.cache,
-                title_cache=self.title_cache,
                 list_terminals=lambda: self.terminals,
                 list_children=lambda: [child],
                 list_sessions=lambda: [summary],
@@ -146,7 +141,6 @@ class FactSourceTests(unittest.TestCase):
         ):
             snapshot = collect_snapshot(
                 prompt_cache=self.cache,
-                title_cache=self.title_cache,
                 list_terminals=lambda: self.terminals,
                 list_children=lambda: [child],
                 list_sessions=lambda: [summary],
@@ -168,13 +162,7 @@ class FactSourceTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(snapshot.rows[0].first_prompt, "这是首条 Prompt")
         self.assertEqual(self.cache.get("sid-1"), "这是首条 Prompt")
-        title_errors = hydrate_titles(
-            snapshot,
-            cache=self.title_cache,
-            generator=lambda prompt: "修复会话聚合看板",
-        )
-        self.assertEqual(title_errors, [])
-        self.assertEqual(snapshot.rows[0].session_name, "修复会话聚合看板")
+        self.assertEqual(snapshot.rows[0].session_name, "标签 1")
 
     def test_one_message_failure_does_not_block_later_sessions(self) -> None:
         children = [
@@ -194,7 +182,6 @@ class FactSourceTests(unittest.TestCase):
         ):
             snapshot = collect_snapshot(
                 prompt_cache=self.cache,
-                title_cache=self.title_cache,
                 list_terminals=lambda: self.terminals,
                 list_children=lambda: children,
                 list_sessions=lambda: summaries,

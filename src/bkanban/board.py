@@ -17,7 +17,6 @@ from . import ghostty
 from .aggregate import collect_snapshot, hydrate_history, hydrate_prompts
 from .hapi_client import HapiService, PromptCache
 from .models import BoardRow, BoardSnapshot, HapiSession, SessionState, STATE_LABELS
-from .titles import TitleCache, TitleGenerator, generate_title, hydrate_titles
 
 
 REFRESH_SECONDS = 4
@@ -212,8 +211,6 @@ class NotebookBoardApp(App[None]):
         *,
         service: HapiService | None = None,
         prompt_cache: PromptCache | None = None,
-        title_cache: TitleCache | None = None,
-        title_generator: TitleGenerator = generate_title,
         snapshot_loader: SnapshotLoader | None = None,
         focus_action: FocusAction = ghostty.focus_terminal_at_bottom,
         history_loader: HistoryLoader | None = None,
@@ -224,13 +221,10 @@ class NotebookBoardApp(App[None]):
         super().__init__()
         self.service = service or HapiService()
         self.prompt_cache = prompt_cache or PromptCache()
-        self.title_cache = title_cache or TitleCache()
-        self.title_generator = title_generator
         self.snapshot_loader = snapshot_loader or (
             lambda: collect_snapshot(
                 service=self.service,
                 prompt_cache=self.prompt_cache,
-                title_cache=self.title_cache,
             )
         )
         self.focus_action = focus_action
@@ -297,12 +291,6 @@ class NotebookBoardApp(App[None]):
         )
         if needs_prompts:
             self._hydrate_prompts(snapshot)
-        elif any(
-            session.first_prompt and not session.title_loaded
-            for row in snapshot.rows
-            for session in row.sessions
-        ):
-            self._hydrate_titles_worker(snapshot)
 
     @work(thread=True, exclusive=True, group="prompts")
     def _hydrate_prompts(self, snapshot: BoardSnapshot) -> None:
@@ -317,33 +305,9 @@ class NotebookBoardApp(App[None]):
         if snapshot is not self.snapshot:
             return
         self._render_table()
-        if any(
-            session.first_prompt and not session.title_loaded
-            for row in snapshot.rows
-            for session in row.sessions
-        ):
-            self._hydrate_titles_worker(snapshot)
         if errors:
             self.query_one("#hintbar", Static).update(
                 " Enter/点击 详情 · g 连接并滚到底部 · HAPi 消息暂不可用"
-            )
-
-    @work(thread=True, exclusive=True, group="titles")
-    def _hydrate_titles_worker(self, snapshot: BoardSnapshot) -> None:
-        errors = hydrate_titles(
-            snapshot,
-            cache=self.title_cache,
-            generator=self.title_generator,
-        )
-        self.call_from_thread(self._apply_title_results, snapshot, errors)
-
-    def _apply_title_results(self, snapshot: BoardSnapshot, errors: list[str]) -> None:
-        if snapshot is not self.snapshot:
-            return
-        self._render_table()
-        if errors:
-            self.query_one("#hintbar", Static).update(
-                " Enter/点击 详情 · g 连接并滚到底部 · 标题模型暂不可用"
             )
 
     def _render_table(self) -> None:

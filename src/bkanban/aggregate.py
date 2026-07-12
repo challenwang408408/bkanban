@@ -29,9 +29,6 @@ from .sessions import (
     normalize_first_prompt,
     state_from_summary,
 )
-from .titles import TitleCache
-
-
 TerminalLister = Callable[[], list[GhosttyTerminal]]
 ChildLister = Callable[[], list[HapiChild]]
 SessionLister = Callable[[], list[dict[str, Any]]]
@@ -45,15 +42,12 @@ def _session_from_child(
     terminal_id: str,
     first_prompt: str,
     prompt_loaded: bool,
-    generated_title: str,
     native_state_resolver: NativeStateResolver = local_agent_state,
 ) -> HapiSession:
     resolved_prompt = first_prompt or (
         normalize_first_prompt(summary.get("_firstUserMessage")) if summary else ""
     )
-    display_title = generated_title or (
-        "正在生成任务标题…" if resolved_prompt else "等待首次 Prompt"
-    )
+    display_title = display_name(summary) if summary else "HAPi Session"
     if summary is None:
         return HapiSession(
             session_id=child.session_id,
@@ -65,7 +59,6 @@ def _session_from_child(
             state_detail="HAPi Session 在线，Hub 数据未连接",
             first_prompt=resolved_prompt,
             prompt_loaded=prompt_loaded,
-            title_loaded=bool(generated_title),
         )
     try:
         native_state = native_state_resolver(summary)
@@ -84,7 +77,6 @@ def _session_from_child(
         first_prompt=resolved_prompt,
         prompt_loaded=prompt_loaded
         or bool(normalize_first_prompt(summary.get("_firstUserMessage"))),
-        title_loaded=bool(generated_title),
         updated_at=summary.get("updatedAt"),
     )
 
@@ -93,7 +85,6 @@ def collect_snapshot(
     *,
     service: HapiService | None = None,
     prompt_cache: PromptCache | None = None,
-    title_cache: TitleCache | None = None,
     list_terminals: TerminalLister | None = None,
     list_children: ChildLister | None = None,
     list_sessions: SessionLister | None = None,
@@ -105,7 +96,6 @@ def collect_snapshot(
     """
     service = service or HapiService()
     prompt_cache = prompt_cache or PromptCache()
-    title_cache = title_cache or TitleCache()
     terminals = list((list_terminals or ghostty.enumerate_terminals)())
     tabs = ghostty.group_tabs(terminals)
     rows_by_tab = {tab.tab_id: BoardRow(tab=tab) for tab in tabs}
@@ -234,8 +224,6 @@ def collect_snapshot(
         resume_prompt = (
             normalize_first_prompt(summary.get("_firstUserMessage")) if summary else ""
         )
-        title_prompt = cached_prompt or resume_prompt
-        cached_title = title_cache.get(child.session_id, title_prompt)
         row.sessions.append(
             _session_from_child(
                 child,
@@ -244,7 +232,6 @@ def collect_snapshot(
                 first_prompt=cached_prompt,
                 prompt_loaded=bool(cached_prompt or resume_prompt)
                 or not prompt_cache.should_fetch(child.session_id, updated_at),
-                generated_title=cached_title,
                 native_state_resolver=native_state_resolver,
             )
         )
@@ -277,8 +264,6 @@ def hydrate_prompts(
                 if text:
                     prompt_cache.put(session.session_id, text)
                     session.first_prompt = text
-                    session.name = "正在生成任务标题…"
-                    session.title_loaded = False
                 else:
                     prompt_cache.mark_miss(session.session_id, session.updated_at)
                 session.prompt_loaded = True
